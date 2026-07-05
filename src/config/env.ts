@@ -31,7 +31,10 @@ const envSchema = z
     // Comma-separated list, e.g. "https://yourdomain.com,https://app.yourdomain.com"
     ALLOWED_ORIGINS: z.string().min(1).optional(),
 
-    SENTRY_DSN: z.string().min(1).optional(),
+    SENTRY_DSN: z.preprocess(
+      (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+      z.string().min(1).optional(),
+    ),
   })
   .superRefine((val, ctx) => {
     if (val.NODE_ENV !== 'production') return;
