@@ -1,0 +1,1 @@
+ALTER TABLE "otps" ADD COLUMN "reset_token_used" boolean DEFAULT false NOT NULL;

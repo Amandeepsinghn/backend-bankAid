@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1781899349494,
+      "tag": "0000_glamorous_dreaming_celestial",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782247173051,
+      "tag": "0001_clammy_jetstream",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782333309989,
+      "tag": "0002_add_indexes_and_unique_phone",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783184684306,
+      "tag": "0003_lucky_lester",
+      "breakpoints": true
+    }
+  ]
+}
