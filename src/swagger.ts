@@ -4,7 +4,7 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Bank Aid — Account Unfreeze Assistant API',
+      title: 'Unfreeze — Account Unfreeze Assistant API',
       version: '1.0.0',
       description:
         'API for the Account Unfreeze Assistant app. Helps users with frozen bank accounts generate formal escalation letters.',

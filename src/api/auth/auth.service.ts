@@ -2,14 +2,16 @@ import bcrypt from 'bcrypt';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
 import { env } from '../../config/env';
-import { twilioClient } from '../../config/twilio';
+import { sendEmail } from '../../config/zeptomail';
+import { renderOtpEmail } from '../../lib/otpEmailTemplate';
 import { AppError } from '../../middleware/error/errorHandler';
 import * as authDb from './auth.db';
 import * as otpDb from './auth.otp.db';
 import type {
   RegisterInput,
   LoginInput,
-  VerifyPhoneInput,
+  VerifyEmailOtpInput,
+  ResendEmailOtpInput,
   ForgotPasswordInput,
   VerifyResetOtpInput,
   ResetPasswordInput,
@@ -17,6 +19,7 @@ import type {
 
 const SALT_ROUNDS = 12;
 const OTP_EXPIRY_MINUTES = 10;
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -45,12 +48,47 @@ async function issueSession(userId: string) {
   return { accessToken, refreshToken };
 }
 
-async function sendSms(to: string, body: string) {
-  await twilioClient.messages.create({
-    to,
-    from: env.TWILIO_PHONE_NUMBER,
-    body,
-  });
+interface OtpEmailCopy {
+  subject: string;
+  heading: string;
+  intro: string;
+}
+
+const EMAIL_VERIFICATION_COPY: OtpEmailCopy = {
+  subject: 'Verify your Unfreeze account',
+  heading: 'Verify your email',
+  intro:
+    "Welcome to Unfreeze! Use the code below to verify your email address and finish setting up your account.",
+};
+
+const PASSWORD_RESET_COPY: OtpEmailCopy = {
+  subject: 'Your Unfreeze password reset code',
+  heading: 'Reset your password',
+  intro:
+    "We received a request to reset your Unfreeze account password. Use the code below to continue.",
+};
+
+// Shared by every OTP-sending flow (register, resend, forgot-password): enforces
+// a resend cooldown, invalidates any still-pending code for the same
+// identifier+type so only the freshly issued one works, then sends the new one.
+async function issueOtp(identifier: string, type: otpDb.OtpType, copy: OtpEmailCopy) {
+  const latest = await otpDb.findLatestOtp(identifier, type);
+  if (latest) {
+    const secondsSinceLastSend = (Date.now() - latest.createdAt.getTime()) / 1000;
+    if (secondsSinceLastSend < OTP_RESEND_COOLDOWN_SECONDS) {
+      const waitSeconds = Math.ceil(OTP_RESEND_COOLDOWN_SECONDS - secondsSinceLastSend);
+      throw new AppError(429, `Please wait ${waitSeconds}s before requesting another OTP`);
+    }
+    await otpDb.invalidatePendingOtps(identifier, type);
+  }
+
+  const code = generateOtp();
+  await otpDb.createOtp(identifier, code, type, OTP_EXPIRY_MINUTES);
+  await sendEmail(
+    { address: identifier },
+    copy.subject,
+    renderOtpEmail({ heading: copy.heading, intro: copy.intro, code, expiryMinutes: OTP_EXPIRY_MINUTES }),
+  );
 }
 
 export async function register(input: RegisterInput) {
@@ -60,33 +98,45 @@ export async function register(input: RegisterInput) {
     email: input.email,
     password: hashedPassword,
     fullName: input.fullName,
-    phone: input.phone,
+    phone: input.phone ?? null,
   });
 
-  const code = generateOtp();
-  await otpDb.createOtp(input.phone, code, 'phone_verification', OTP_EXPIRY_MINUTES);
-  await sendSms(input.phone, `Your Bank Aid verification code is: ${code}`);
+  await issueOtp(profile.email, 'email_verification', EMAIL_VERIFICATION_COPY);
 
   return {
     id: profile.id,
     email: profile.email,
     fullName: profile.fullName,
     phone: profile.phone,
-    message: 'OTP sent to your phone for verification',
+    message: 'OTP sent to your email for verification',
   };
 }
 
-export async function verifyPhone(input: VerifyPhoneInput) {
-  const otp = await otpDb.findValidOtp(input.phone, input.code, 'phone_verification');
+export async function resendEmailOtp(input: ResendEmailOtpInput) {
+  const profile = await authDb.findProfileByEmail(input.email);
+  if (!profile) {
+    throw new AppError(404, 'No account found with this email');
+  }
+  if (profile.emailVerified) {
+    throw new AppError(400, 'Email is already verified. Please log in.');
+  }
+
+  await issueOtp(profile.email, 'email_verification', EMAIL_VERIFICATION_COPY);
+
+  return { message: 'OTP resent to your email' };
+}
+
+export async function verifyEmailOtp(input: VerifyEmailOtpInput) {
+  const otp = await otpDb.findValidOtp(input.email, input.code, 'email_verification');
   if (!otp) {
     throw new AppError(400, 'Invalid or expired OTP');
   }
 
   await otpDb.markOtpVerified(otp.id);
 
-  const profile = await authDb.markPhoneVerified(input.phone);
+  const profile = await authDb.markEmailVerified(input.email);
   if (!profile) {
-    throw new AppError(404, 'Profile not found for this phone number');
+    throw new AppError(404, 'Profile not found for this email address');
   }
 
   const { accessToken, refreshToken } = await issueSession(profile.id);
@@ -99,7 +149,7 @@ export async function verifyPhone(input: VerifyPhoneInput) {
       email: profile.email,
       fullName: profile.fullName,
       phone: profile.phone,
-      phoneVerified: profile.phoneVerified,
+      emailVerified: profile.emailVerified,
     },
   };
 }
@@ -115,8 +165,8 @@ export async function login(input: LoginInput) {
     throw new AppError(401, 'Invalid email or password');
   }
 
-  if (!profile.phoneVerified) {
-    throw new AppError(403, 'Phone number not verified. Please verify your phone first.');
+  if (!profile.emailVerified) {
+    throw new AppError(403, 'Email not verified. Please verify your email first.');
   }
 
   const { accessToken, refreshToken } = await issueSession(profile.id);
@@ -129,7 +179,7 @@ export async function login(input: LoginInput) {
       email: profile.email,
       fullName: profile.fullName,
       phone: profile.phone,
-      phoneVerified: profile.phoneVerified,
+      emailVerified: profile.emailVerified,
     },
   };
 }
@@ -140,29 +190,33 @@ export async function forgotPassword(input: ForgotPasswordInput) {
     throw new AppError(404, 'No account found with this email');
   }
 
-  const code = generateOtp();
-  await otpDb.createOtp(profile.phone, code, 'password_reset', OTP_EXPIRY_MINUTES);
-  await sendSms(profile.phone, `Your Bank Aid password reset code is: ${code}`);
+  // Only checked when the account has a phone on file — most accounts won't,
+  // since phone isn't collected at registration.
+  if (profile.phone && profile.phone !== input.phone) {
+    throw new AppError(404, 'No account found with this email and phone number combination');
+  }
 
-  const maskedPhone = profile.phone.slice(0, 4) + '****' + profile.phone.slice(-2);
+  // Calling this again (e.g. the "Resend OTP" button) reissues a fresh code,
+  // subject to the same cooldown/invalidation rules as any other OTP send.
+  await issueOtp(profile.email, 'password_reset', PASSWORD_RESET_COPY);
 
   return {
-    phone: maskedPhone,
-    message: 'OTP sent to your registered phone number',
+    email: profile.email,
+    message: 'OTP sent to your registered email address',
   };
 }
 
 export async function verifyResetOtp(input: VerifyResetOtpInput) {
-  const otp = await otpDb.findValidOtp(input.phone, input.code, 'password_reset');
+  const otp = await otpDb.findValidOtp(input.email, input.code, 'password_reset');
   if (!otp) {
     throw new AppError(400, 'Invalid or expired OTP');
   }
 
   await otpDb.markOtpVerified(otp.id);
 
-  const profile = await authDb.findProfileByPhone(input.phone);
+  const profile = await authDb.findProfileByEmail(input.email);
   if (!profile) {
-    throw new AppError(404, 'No account found for this phone number');
+    throw new AppError(404, 'No account found for this email');
   }
 
   const resetToken = signToken({ userId: profile.id, type: 'reset', otpId: otp.id }, '15m');
@@ -235,7 +289,7 @@ export async function getProfile(userId: string) {
     email: profile.email,
     fullName: profile.fullName,
     phone: profile.phone,
-    phoneVerified: profile.phoneVerified,
+    emailVerified: profile.emailVerified,
     createdAt: profile.createdAt,
   };
 }

@@ -16,8 +16,10 @@ export const profiles = pgTable('profiles', {
   email: text('email').notNull().unique(),
   password: text('password').notNull(),
   fullName: text('full_name').notNull(),
-  phone: text('phone').notNull().unique(),
-  phoneVerified: boolean('phone_verified').default(false).notNull(),
+  // Optional — only used as an identity-check field on forgot-password.
+  phone: text('phone').unique(),
+  // Verified via emailed OTP at registration — see auth.service.ts.
+  emailVerified: boolean('email_verified').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -38,9 +40,12 @@ export const otps = pgTable(
   'otps',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    // Always an email address (column kept as `phone` to avoid an ambiguous rename migration).
     phone: text('phone').notNull(),
     code: text('code').notNull(),
-    type: text('type', { enum: ['phone_verification', 'password_reset'] }).notNull(),
+    type: text('type', {
+      enum: ['password_reset', 'email_verification'],
+    }).notNull(),
     expiresAt: timestamp('expires_at').notNull(),
     verified: boolean('verified').default(false).notNull(),
     resetTokenUsed: boolean('reset_token_used').default(false).notNull(),

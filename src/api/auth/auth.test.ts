@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
   registerSchema,
   loginSchema,
-  verifyPhoneSchema,
+  verifyEmailOtpSchema,
+  resendEmailOtpSchema,
+  forgotPasswordSchema,
   resetPasswordSchema,
   refreshSchema,
   logoutSchema,
+  verifyResetOtpSchema,
 } from './auth.requestHygiene';
 
 const VALID_REFRESH_TOKEN = 'a'.repeat(96); // 96 lowercase hex chars — matches randomBytes(48).toString('hex')
@@ -71,6 +74,15 @@ describe('Auth Request Hygiene', () => {
       });
       expect(result.success).toBe(false);
     });
+
+    it('validates a payload with no phone', () => {
+      const result = registerSchema.safeParse({
+        email: 'user@example.com',
+        password: 'password123',
+        fullName: 'Uttam Yadav',
+      });
+      expect(result.success).toBe(true);
+    });
   });
 
   describe('loginSchema', () => {
@@ -83,35 +95,76 @@ describe('Auth Request Hygiene', () => {
     });
   });
 
-  describe('verifyPhoneSchema', () => {
-    it('validates correct OTP payload', () => {
-      const result = verifyPhoneSchema.safeParse({
-        phone: '+919876543210',
+  describe('verifyResetOtpSchema', () => {
+    it('validates a correct email + code payload', () => {
+      const result = verifyResetOtpSchema.safeParse({
+        email: 'user@example.com',
         code: '123456',
       });
       expect(result.success).toBe(true);
     });
 
-    it('rejects non-6-digit code', () => {
-      const result = verifyPhoneSchema.safeParse({
-        phone: '+919876543210',
+    it('rejects an invalid email', () => {
+      const result = verifyResetOtpSchema.safeParse({
+        email: 'not-an-email',
+        code: '123456',
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('verifyEmailOtpSchema', () => {
+    it('validates a correct email + code payload', () => {
+      const result = verifyEmailOtpSchema.safeParse({
+        email: 'user@example.com',
+        code: '123456',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects a non-6-digit code', () => {
+      const result = verifyEmailOtpSchema.safeParse({
+        email: 'user@example.com',
         code: '12345',
       });
       expect(result.success).toBe(false);
     });
+  });
 
-    it('rejects non-numeric OTP code', () => {
-      const result = verifyPhoneSchema.safeParse({
+  describe('resendEmailOtpSchema', () => {
+    it('validates a correct email payload', () => {
+      expect(resendEmailOtpSchema.safeParse({ email: 'user@example.com' }).success).toBe(true);
+    });
+
+    it('rejects an invalid email', () => {
+      expect(resendEmailOtpSchema.safeParse({ email: 'not-an-email' }).success).toBe(false);
+    });
+
+    it('rejects a missing email', () => {
+      expect(resendEmailOtpSchema.safeParse({}).success).toBe(false);
+    });
+  });
+
+  describe('forgotPasswordSchema', () => {
+    it('validates a correct email + phone payload', () => {
+      const result = forgotPasswordSchema.safeParse({
+        email: 'user@example.com',
         phone: '+919876543210',
-        code: 'abcdef',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects a missing phone', () => {
+      const result = forgotPasswordSchema.safeParse({
+        email: 'user@example.com',
       });
       expect(result.success).toBe(false);
     });
 
-    it('rejects OTP code with special characters', () => {
-      const result = verifyPhoneSchema.safeParse({
-        phone: '+919876543210',
-        code: '!@#$%^',
+    it('rejects an invalid phone format', () => {
+      const result = forgotPasswordSchema.safeParse({
+        email: 'user@example.com',
+        phone: '9876543210',
       });
       expect(result.success).toBe(false);
     });

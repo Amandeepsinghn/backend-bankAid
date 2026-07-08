@@ -13,9 +13,10 @@ const envSchema = z
     DATABASE_URL: z.string().min(1),
     DB_POOL_MAX: z.coerce.number().default(50),
 
-    TWILIO_ACCOUNT_SID: z.string().min(1),
-    TWILIO_AUTH_TOKEN: z.string().min(1),
-    TWILIO_PHONE_NUMBER: z.string().min(1),
+    ZEPTOMAIL_API_KEY: z.string().min(1),
+    ZEPTOMAIL_FROM_EMAIL: z.string().email(),
+    ZEPTOMAIL_FROM_NAME: z.string().min(1).default('Unfreeze'),
+    ZEPTOMAIL_API_URL: z.string().url().default('https://api.zeptomail.in/v1.1/email'),
 
     RAZORPAY_KEY_ID: z.string().min(1),
     RAZORPAY_KEY_SECRET: z.string().min(1),
@@ -31,10 +32,7 @@ const envSchema = z
     // Comma-separated list, e.g. "https://yourdomain.com,https://app.yourdomain.com"
     ALLOWED_ORIGINS: z.string().min(1).optional(),
 
-    SENTRY_DSN: z.preprocess(
-      (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
-      z.string().min(1).optional(),
-    ),
+    SENTRY_DSN: z.string().min(1).optional(),
   })
   .superRefine((val, ctx) => {
     if (val.NODE_ENV !== 'production') return;

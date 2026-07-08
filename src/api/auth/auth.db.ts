@@ -22,7 +22,7 @@ export async function createProfile(data: {
   email: string;
   password: string;
   fullName: string;
-  phone: string;
+  phone?: string | null;
 }) {
   try {
     const [profile] = await db.insert(profiles).values(data).returning();
@@ -57,16 +57,11 @@ export async function findProfileById(id: string) {
   return profile;
 }
 
-export async function findProfileByPhone(phone: string) {
-  const [profile] = await db.select().from(profiles).where(eq(profiles.phone, phone)).limit(1);
-  return profile;
-}
-
-export async function markPhoneVerified(phone: string) {
+export async function markEmailVerified(email: string) {
   const [updated] = await db
     .update(profiles)
-    .set({ phoneVerified: true })
-    .where(eq(profiles.phone, phone))
+    .set({ emailVerified: true })
+    .where(eq(profiles.email, email))
     .returning();
   if (updated) {
     await cacheDel(profileCacheKey(updated.id));

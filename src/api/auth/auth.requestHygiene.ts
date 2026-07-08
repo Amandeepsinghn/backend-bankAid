@@ -9,7 +9,8 @@ const otpCodeField = z.string().regex(/^\d{6}$/, 'OTP must be exactly 6 digits')
 export const registerSchema = z.object({
   email: emailField,
   password: passwordField('Password'),
-  phone: phoneField,
+  // Optional — not collected at registration, just a data field used later.
+  phone: phoneField.optional(),
   fullName: z.string().min(2, 'Full name is required').max(100, 'Full name too long'),
 });
 
@@ -18,17 +19,22 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required').max(128),
 });
 
-export const verifyPhoneSchema = z.object({
-  phone: phoneField,
+export const verifyEmailOtpSchema = z.object({
+  email: emailField,
   code: otpCodeField,
+});
+
+export const resendEmailOtpSchema = z.object({
+  email: emailField,
 });
 
 export const forgotPasswordSchema = z.object({
   email: emailField,
+  phone: phoneField,
 });
 
 export const verifyResetOtpSchema = z.object({
-  phone: phoneField,
+  email: emailField,
   code: otpCodeField,
 });
 

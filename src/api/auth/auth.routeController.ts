@@ -4,7 +4,8 @@ import * as authService from './auth.service';
 import {
   registerSchema,
   loginSchema,
-  verifyPhoneSchema,
+  verifyEmailOtpSchema,
+  resendEmailOtpSchema,
   forgotPasswordSchema,
   verifyResetOtpSchema,
   resetPasswordSchema,
@@ -18,15 +19,21 @@ export async function registerController(req: Request, res: Response) {
   res.status(201).json(result);
 }
 
-export async function verifyPhoneController(req: Request, res: Response) {
-  const data = verifyPhoneSchema.parse(req.body);
-  const result = await authService.verifyPhone(data);
-  res.json(result);
-}
-
 export async function loginController(req: Request, res: Response) {
   const data = loginSchema.parse(req.body);
   const result = await authService.login(data);
+  res.json(result);
+}
+
+export async function verifyEmailOtpController(req: Request, res: Response) {
+  const data = verifyEmailOtpSchema.parse(req.body);
+  const result = await authService.verifyEmailOtp(data);
+  res.json(result);
+}
+
+export async function resendEmailOtpController(req: Request, res: Response) {
+  const data = resendEmailOtpSchema.parse(req.body);
+  const result = await authService.resendEmailOtp(data);
   res.json(result);
 }
 

@@ -1,7 +1,7 @@
 export interface RegisterInput {
   email: string;
   password: string;
-  phone: string;
+  phone?: string;
   fullName: string;
 }
 
@@ -10,17 +10,22 @@ export interface LoginInput {
   password: string;
 }
 
-export interface VerifyPhoneInput {
-  phone: string;
+export interface VerifyEmailOtpInput {
+  email: string;
   code: string;
+}
+
+export interface ResendEmailOtpInput {
+  email: string;
 }
 
 export interface ForgotPasswordInput {
   email: string;
+  phone: string;
 }
 
 export interface VerifyResetOtpInput {
-  phone: string;
+  email: string;
   code: string;
 }
 
@@ -34,7 +39,7 @@ export interface ProfileResponse {
   id: string;
   email: string;
   fullName: string;
-  phone: string;
-  phoneVerified: boolean;
+  phone: string | null;
+  emailVerified: boolean;
   createdAt: Date;
 }

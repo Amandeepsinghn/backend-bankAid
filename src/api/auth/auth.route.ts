@@ -8,7 +8,8 @@ import {
 } from '../../middleware/security/rateLimit';
 import {
   registerController,
-  verifyPhoneController,
+  verifyEmailOtpController,
+  resendEmailOtpController,
   loginController,
   forgotPasswordController,
   verifyResetOtpController,
@@ -26,14 +27,14 @@ const router = Router();
  *   post:
  *     tags: [Auth]
  *     summary: Register a new user
- *     description: Creates an account and sends OTP to phone for verification via Twilio
+ *     description: Creates an account with email + password and sends an OTP to that email for verification
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, password, phone, fullName]
+ *             required: [email, password, fullName]
  *             properties:
  *               email:
  *                 type: string
@@ -45,46 +46,79 @@ const router = Router();
  *                 example: MySecure123
  *               phone:
  *                 type: string
+ *                 description: Optional — not collected at registration, just a data field used later
  *                 example: "+919876543210"
  *               fullName:
  *                 type: string
  *                 example: Uttam Yadav
  *     responses:
  *       201:
- *         description: Account created, OTP sent
+ *         description: Account created, OTP sent to email
  *       409:
- *         description: Email or phone already registered
+ *         description: Email already registered
  */
 router.post('/register', authAttemptLimiter, asyncHandler(registerController));
 
 /**
  * @swagger
- * /api/auth/verify-phone:
+ * /api/auth/verify-email-otp:
  *   post:
  *     tags: [Auth]
- *     summary: Verify phone OTP
- *     description: Verifies the OTP sent to the user's phone during registration
+ *     summary: Verify email OTP
+ *     description: Verifies the OTP sent to the user's email during registration
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [phone, code]
+ *             required: [email, code]
  *             properties:
- *               phone:
+ *               email:
  *                 type: string
- *                 example: "+919876543210"
+ *                 format: email
+ *                 example: user@example.com
  *               code:
  *                 type: string
  *                 example: "123456"
  *     responses:
  *       200:
- *         description: Phone verified, returns JWT token
+ *         description: Email verified, returns access + refresh tokens
  *       400:
  *         description: Invalid or expired OTP
  */
-router.post('/verify-phone', otpVerifyLimiter, asyncHandler(verifyPhoneController));
+router.post('/verify-email-otp', otpVerifyLimiter, asyncHandler(verifyEmailOtpController));
+
+/**
+ * @swagger
+ * /api/auth/resend-email-otp:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Resend registration email OTP
+ *     description: Reissues a fresh OTP to the email if the account exists and isn't yet verified. Invalidates any previously issued unverified code. Rate-limited to one send per 60 seconds per email.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: user@example.com
+ *     responses:
+ *       200:
+ *         description: OTP resent to email
+ *       400:
+ *         description: Email is already verified
+ *       404:
+ *         description: No account found
+ *       429:
+ *         description: Resend cooldown still active
+ */
+router.post('/resend-email-otp', otpRequestLimiter, asyncHandler(resendEmailOtpController));
 
 /**
  * @swagger
@@ -113,7 +147,7 @@ router.post('/verify-phone', otpVerifyLimiter, asyncHandler(verifyPhoneControlle
  *       401:
  *         description: Invalid credentials
  *       403:
- *         description: Phone not verified
+ *         description: Email not verified
  */
 router.post('/login', authAttemptLimiter, asyncHandler(loginController));
 
@@ -122,25 +156,30 @@ router.post('/login', authAttemptLimiter, asyncHandler(loginController));
  * /api/auth/forgot-password:
  *   post:
  *     tags: [Auth]
- *     summary: Request password reset OTP
- *     description: Sends an OTP to the registered phone number
+ *     summary: Request (or resend) password reset OTP
+ *     description: Sends an OTP to the registered email address via ZeptoMail. If the account has a phone number on file, the supplied phone must match it. Calling this again acts as "resend" — invalidates the previous code and issues a new one, subject to a 60-second cooldown per email.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email]
+ *             required: [email, phone]
  *             properties:
  *               email:
  *                 type: string
  *                 format: email
  *                 example: user@example.com
+ *               phone:
+ *                 type: string
+ *                 example: "+919876543210"
  *     responses:
  *       200:
- *         description: OTP sent to registered phone
+ *         description: OTP sent to registered email
  *       404:
- *         description: No account found
+ *         description: No account found, or phone doesn't match records
+ *       429:
+ *         description: Resend cooldown still active
  */
 router.post('/forgot-password', otpRequestLimiter, asyncHandler(forgotPasswordController));
 
@@ -157,11 +196,12 @@ router.post('/forgot-password', otpRequestLimiter, asyncHandler(forgotPasswordCo
  *         application/json:
  *           schema:
  *             type: object
- *             required: [phone, code]
+ *             required: [email, code]
  *             properties:
- *               phone:
+ *               email:
  *                 type: string
- *                 example: "+919876543210"
+ *                 format: email
+ *                 example: user@example.com
  *               code:
  *                 type: string
  *                 example: "123456"
