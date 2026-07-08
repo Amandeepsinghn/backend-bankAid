@@ -92,16 +92,29 @@ async function issueOtp(identifier: string, type: otpDb.OtpType, copy: OtpEmailC
 }
 
 export async function register(input: RegisterInput) {
+  const existingEmail = await authDb.findProfileByEmail(input.email);
+  if (existingEmail) {
+    throw new authDb.ProfileConflictError('email');
+  }
+  const existingPhone = await authDb.findProfileByPhone(input.phone);
+  if (existingPhone) {
+    throw new authDb.ProfileConflictError('phone');
+  }
+
   const hashedPassword = await bcrypt.hash(input.password, SALT_ROUNDS);
+
+  // Send the verification OTP BEFORE creating the account — if email delivery
+  // fails, nothing is persisted, so the user can just retry registration
+  // instead of getting stuck with an unverifiable account that blocks retries
+  // with a 409 "already registered".
+  await issueOtp(input.email, 'email_verification', EMAIL_VERIFICATION_COPY);
 
   const profile = await authDb.createProfile({
     email: input.email,
     password: hashedPassword,
     fullName: input.fullName,
-    phone: input.phone ?? null,
+    phone: input.phone,
   });
-
-  await issueOtp(profile.email, 'email_verification', EMAIL_VERIFICATION_COPY);
 
   return {
     id: profile.id,

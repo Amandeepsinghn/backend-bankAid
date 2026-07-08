@@ -27,14 +27,14 @@ const router = Router();
  *   post:
  *     tags: [Auth]
  *     summary: Register a new user
- *     description: Creates an account with email + password and sends an OTP to that email for verification
+ *     description: Creates an account with email + password + phone and sends an OTP to that email for verification. The OTP is sent before the account is persisted — if email delivery fails, nothing is saved and the request can simply be retried.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [email, password, fullName]
+ *             required: [email, password, phone, fullName]
  *             properties:
  *               email:
  *                 type: string
@@ -46,7 +46,6 @@ const router = Router();
  *                 example: MySecure123
  *               phone:
  *                 type: string
- *                 description: Optional — not collected at registration, just a data field used later
  *                 example: "+919876543210"
  *               fullName:
  *                 type: string
@@ -55,7 +54,9 @@ const router = Router();
  *       201:
  *         description: Account created, OTP sent to email
  *       409:
- *         description: Email already registered
+ *         description: Email or phone already registered
+ *       502:
+ *         description: Email delivery failed — no account was created, safe to retry
  */
 router.post('/register', authAttemptLimiter, asyncHandler(registerController));
 

@@ -22,7 +22,7 @@ export async function createProfile(data: {
   email: string;
   password: string;
   fullName: string;
-  phone?: string | null;
+  phone: string;
 }) {
   try {
     const [profile] = await db.insert(profiles).values(data).returning();
@@ -42,6 +42,11 @@ export async function createProfile(data: {
 
 export async function findProfileByEmail(email: string) {
   const [profile] = await db.select().from(profiles).where(eq(profiles.email, email)).limit(1);
+  return profile;
+}
+
+export async function findProfileByPhone(phone: string) {
+  const [profile] = await db.select().from(profiles).where(eq(profiles.phone, phone)).limit(1);
   return profile;
 }
 

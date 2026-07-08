@@ -75,13 +75,13 @@ describe('Auth Request Hygiene', () => {
       expect(result.success).toBe(false);
     });
 
-    it('validates a payload with no phone', () => {
+    it('rejects a payload with no phone', () => {
       const result = registerSchema.safeParse({
         email: 'user@example.com',
         password: 'password123',
         fullName: 'Uttam Yadav',
       });
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
     });
   });
 
