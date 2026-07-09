@@ -1,6 +1,6 @@
 import { db } from '../../db';
 import { subscriptions } from '../../db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, lt } from 'drizzle-orm';
 import type { Tier } from '../../lib/tierValidation';
 import { cacheGet, cacheSet, cacheDel } from '../../lib/redis';
 
@@ -89,4 +89,11 @@ export async function getUserSubscriptions(userId: string) {
     .from(subscriptions)
     .where(eq(subscriptions.userId, userId))
     .orderBy(desc(subscriptions.createdAt));
+}
+
+export async function deleteStalePendingSubscriptions(createdBefore: Date) {
+  return db
+    .delete(subscriptions)
+    .where(and(eq(subscriptions.status, 'pending'), lt(subscriptions.createdAt, createdBefore)))
+    .returning({ id: subscriptions.id });
 }

@@ -4,10 +4,19 @@ import * as formDb from './form.db';
 import * as subscriptionDb from '../subscription/subscription.db';
 import type { FormSubmitInput } from './form.types';
 
+// The Generate/submit action is the one true gate: it's the only place that
+// actually persists a case, so every check that decides "can this user get
+// letters" lives here, server-side, and short-circuits before any DB write.
+// The client fills the form entirely from local state beforehand — nothing
+// hits this endpoint until the user hits Generate.
 export async function submitForm(userId: string, input: FormSubmitInput) {
   const subscription = await subscriptionDb.getActiveSubscription(userId);
   if (!subscription) {
-    throw new AppError(403, 'Active subscription required to submit form', 'SUBSCRIPTION_REQUIRED');
+    throw new AppError(
+      403,
+      'An active plan is required to generate letters.',
+      'SUBSCRIPTION_REQUIRED',
+    );
   }
 
   const tier = subscription.tier as Tier;
@@ -18,15 +27,17 @@ export async function submitForm(userId: string, input: FormSubmitInput) {
     throw new AppError(
       403,
       `You have reached your case limit (${caseLimit} cases for ${tier} plan). Please upgrade your plan to file more cases.`,
+      'CASE_LIMIT_REACHED',
     );
   }
 
   const validation = validateAmountAgainstTier(tier, input.declaredStuckAmount);
-
-  if (!validation.valid) {
-    if (validation.reason === 'exceeds_tier') {
-      throw new AppError(400, 'Your stuck amount exceeds your current plan range. Please upgrade your plan.');
-    }
+  if (!validation.valid && validation.reason === 'exceeds_tier') {
+    throw new AppError(
+      400,
+      'Your stuck amount exceeds your current plan range. Please upgrade your plan.',
+      'TIER_EXCEEDED',
+    );
   }
 
   const submission = await formDb.createFormSubmission({

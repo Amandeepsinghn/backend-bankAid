@@ -51,7 +51,7 @@ const router = Router();
  *       401:
  *         description: Unauthorized
  */
-router.get('/home-summary', verifyToken, requireSubscription, asyncHandler(getHomeSummaryController));
+router.get('/home-summary', verifyToken, asyncHandler(getHomeSummaryController));
 
 /**
  * @swagger
@@ -74,7 +74,7 @@ router.get('/home-summary', verifyToken, requireSubscription, asyncHandler(getHo
  *       401:
  *         description: Unauthorized
  */
-router.get('/', verifyToken, requireSubscription, asyncHandler(listCasesController));
+router.get('/', verifyToken, asyncHandler(listCasesController));
 
 /**
  * @swagger

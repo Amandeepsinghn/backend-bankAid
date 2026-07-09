@@ -99,7 +99,7 @@ const router = Router();
  *       400:
  *         description: Stuck amount exceeds tier range
  *       403:
- *         description: No active subscription
+ *         description: No active subscription, or case limit reached
  */
 router.post('/submit', verifyToken, requireSubscription, asyncHandler(submitFormController));
 

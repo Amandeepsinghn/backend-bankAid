@@ -25,6 +25,7 @@ async function startServer() {
   const { default: app } = await import('./app');
   const { client } = await import('./db');
   const { startCleanupJob } = await import('./lib/cleanupJob');
+  const { startPendingSubscriptionCleanupJob } = await import('./lib/pendingSubscriptionCleanupJob');
   const { redis } = await import('./lib/redis');
 
   const server = app.listen(env.PORT, () => {
@@ -33,13 +34,17 @@ async function startServer() {
     logger.info(`Environment: ${env.NODE_ENV}`);
   });
 
-  // Only one worker owns the periodic cleanup job to avoid duplicate deletes across the fleet.
+  // Only one worker owns the periodic cleanup jobs to avoid duplicate deletes across the fleet.
   const ownsCleanupJob = !cluster.isWorker || cluster.worker?.id === 1;
   const cleanupHandle = ownsCleanupJob ? startCleanupJob() : null;
+  const pendingSubscriptionCleanupHandle = ownsCleanupJob
+    ? startPendingSubscriptionCleanupJob()
+    : null;
 
   function shutdown(signal: string) {
     logger.info(`${signal} received, shutting down (pid ${process.pid})`);
     if (cleanupHandle) clearInterval(cleanupHandle);
+    if (pendingSubscriptionCleanupHandle) clearInterval(pendingSubscriptionCleanupHandle);
 
     server.close(() => {
       Promise.allSettled([client.end(), redis?.quit()])

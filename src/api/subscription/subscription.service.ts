@@ -146,6 +146,16 @@ export async function handleRazorpayWebhook(rawBody: Buffer, signature: string |
   return { received: true };
 }
 
+// Orders left unpaid past this age are abandoned checkouts — the record is dropped
+// rather than kept as dead "pending" state, since it never became a real subscription.
+const PENDING_SUBSCRIPTION_STALE_MS = 30 * 60 * 1000;
+
+export async function cleanupStalePendingSubscriptions() {
+  const cutoff = new Date(Date.now() - PENDING_SUBSCRIPTION_STALE_MS);
+  const deleted = await subscriptionDb.deleteStalePendingSubscriptions(cutoff);
+  return deleted.length;
+}
+
 export async function getSubscriptionStatus(userId: string) {
   const subscription = await subscriptionDb.getActiveSubscription(userId);
 
