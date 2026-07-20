@@ -15,12 +15,16 @@ export async function createSubscription(data: {
   tier: Tier;
   razorpayOrderId: string;
   amountPaise: number;
+  // Set only for orders created via the magic-link checkout — the audit trail
+  // linking this purchase back to the link that produced it.
+  magicLinkTokenId?: string;
 }) {
   const [subscription] = await db.insert(subscriptions).values({
     userId: data.userId,
     tier: data.tier,
     razorpayOrderId: data.razorpayOrderId,
     amountPaise: data.amountPaise,
+    magicLinkTokenId: data.magicLinkTokenId,
     status: 'pending',
   }).returning();
   await cacheDel(activeSubscriptionCacheKey(data.userId));

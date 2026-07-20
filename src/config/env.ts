@@ -22,6 +22,10 @@ const envSchema = z
     RAZORPAY_KEY_SECRET: z.string().min(1),
     RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
 
+    // Base URL of the marketing/checkout website — used to build the magic-link
+    // URL emailed to users (e.g. https://unfreezeapp.in), no trailing slash.
+    WEBSITE_URL: z.string().url(),
+
     REDIS_URL: z.string().min(1).optional(),
 
     SWAGGER_USER: z.string().min(1).optional(),

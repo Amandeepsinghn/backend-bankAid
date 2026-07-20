@@ -306,3 +306,14 @@ export async function getProfile(userId: string) {
     createdAt: profile.createdAt,
   };
 }
+
+export async function deleteAccount(userId: string) {
+  const profile = await authDb.findProfileById(userId);
+  if (!profile) {
+    throw new AppError(404, 'Profile not found');
+  }
+
+  await authDb.deleteAccountCascade(userId, profile.email);
+
+  return { message: 'Account deleted successfully' };
+}

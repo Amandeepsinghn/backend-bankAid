@@ -43,6 +43,13 @@
       "when": 1783491139701,
       "tag": "0005_massive_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784467050278,
+      "tag": "0006_parched_living_lightning",
+      "breakpoints": true
     }
   ]
 }

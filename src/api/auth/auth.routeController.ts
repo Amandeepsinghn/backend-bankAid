@@ -71,3 +71,8 @@ export async function logoutController(req: Request, res: Response) {
   const result = await authService.logout(data.refreshToken);
   res.json(result);
 }
+
+export async function deleteAccountController(req: AuthRequest, res: Response) {
+  const result = await authService.deleteAccount(req.userId!);
+  res.json(result);
+}

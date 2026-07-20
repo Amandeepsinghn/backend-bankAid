@@ -56,6 +56,27 @@ export const otps = pgTable(
   ]
 );
 
+// Single-use, short-lived tokens emailed to a user who hit SUBSCRIPTION_REQUIRED in the
+// app, letting them attach their identity to a website checkout without re-logging-in.
+// Deliberately separate from `otps`/refresh-token auth — see auth.service.ts's `type`
+// discriminator pattern, which this mirrors with its own `checkout` JWT type rather than
+// reusing `type: 'auth'`.
+export const magicLinkTokens = pgTable(
+  'magic_link_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => profiles.id).notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at').notNull(),
+    // NULL until consumed by a successful /magic-link/verify call.
+    usedAt: timestamp('used_at'),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [index('magic_link_tokens_user_id_idx').on(table.userId)]
+);
+
 export const subscriptions = pgTable(
   'subscriptions',
   {
@@ -66,6 +87,9 @@ export const subscriptions = pgTable(
     razorpayPaymentId: text('razorpay_payment_id'),
     amountPaise: integer('amount_paise').notNull(),
     status: text('status', { enum: ['pending', 'paid', 'failed'] }).default('pending').notNull(),
+    // Set only when this purchase originated from a magic-link checkout — the audit
+    // trail linking a payment back to the link that produced it.
+    magicLinkTokenId: uuid('magic_link_token_id').references(() => magicLinkTokens.id),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [

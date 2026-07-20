@@ -17,6 +17,7 @@ import {
   meController,
   refreshController,
   logoutController,
+  deleteAccountController,
 } from './auth.routeController';
 
 const router = Router();
@@ -308,5 +309,24 @@ router.post('/refresh', asyncHandler(refreshController));
  *         description: Logged out successfully
  */
 router.post('/logout', asyncHandler(logoutController));
+
+/**
+ * @swagger
+ * /api/auth/account:
+ *   delete:
+ *     tags: [Auth]
+ *     summary: Permanently delete the current account
+ *     description: Irreversibly deletes the profile and every associated record — form submissions, letters, subscriptions, refresh tokens, and OTPs.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Profile not found
+ */
+router.delete('/account', verifyToken, asyncHandler(deleteAccountController));
 
 export default router;

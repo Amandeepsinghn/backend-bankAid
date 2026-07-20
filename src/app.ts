@@ -17,6 +17,8 @@ import { webhookController } from './api/subscription/subscription.routeControll
 
 import authRoutes from './api/auth/auth.route';
 import subscriptionRoutes from './api/subscription/subscription.route';
+import magicLinkRoutes from './api/subscription/magicLink.route';
+import checkoutRoutes from './api/subscription/checkout.route';
 import formRoutes from './api/form/form.route';
 import letterRoutes from './api/letter/letter.route';
 import caseRoutes from './api/case/case.route';
@@ -57,6 +59,8 @@ app.get('/api-docs.json', swaggerGuard, (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/subscription', magicLinkRoutes);
+app.use('/api/subscription', checkoutRoutes);
 app.use('/api/form', formRoutes);
 app.use('/api/letter', letterRoutes);
 app.use('/api/case', caseRoutes);

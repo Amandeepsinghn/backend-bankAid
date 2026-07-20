@@ -41,7 +41,7 @@ export function getPlans(): PlanInfo[] {
   ];
 }
 
-export async function createOrder(userId: string, tier: Tier) {
+export async function createOrder(userId: string, tier: Tier, magicLinkTokenId?: string) {
   const amount = TIER_PRICES[tier];
 
   // Razorpay caps `receipt` at 40 chars — a full UUID + timestamp overflows it,
@@ -71,6 +71,7 @@ export async function createOrder(userId: string, tier: Tier) {
     tier,
     razorpayOrderId: order.id,
     amountPaise: amount,
+    magicLinkTokenId,
   });
 
   return {

@@ -2,6 +2,7 @@ import rateLimit, { ipKeyGenerator, type Options, type AugmentedRequest } from '
 import { RedisStore, type RedisReply } from 'rate-limit-redis';
 import { redis } from '../../lib/redis';
 import type { AuthRequest } from './verifyToken';
+import type { CheckoutRequest } from './verifyCheckoutToken';
 
 function retryAfterHandler(message: string): NonNullable<Options['handler']> {
   return (req, res, _next, options) => {
@@ -79,4 +80,31 @@ export const paymentActionLimiter = rateLimit({
   store: makeStore('rl:payment:'),
   keyGenerator: (req) => (req as AuthRequest).userId ?? ipKeyGenerator(req.ip!),
   handler: retryAfterHandler('Too many payment requests, please try again later'),
+});
+
+// Checkout actions (checkout/create-order, checkout/verify-payment) — 10 per 15 minutes
+// per checkout-session user. Deliberately keyed on `checkoutUserId`, never falling back to
+// IP: these calls arrive server-to-server from the website's own backend, so req.ip would
+// be the website server's IP — one shared bucket across every user checking out through it.
+export const checkoutActionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore('rl:checkout:'),
+  keyGenerator: (req) => (req as CheckoutRequest).checkoutUserId!,
+  handler: retryAfterHandler('Too many payment requests, please try again later'),
+});
+
+// Magic-link requests (request-magic-link) — 1 per 2 minutes per user. Own bucket,
+// deliberately not shared with otpRequestLimiter: a burst of login-OTP requests must
+// never exhaust a user's magic-link quota, or vice versa (see Part 1 audit decision).
+export const magicLinkRequestLimiter = rateLimit({
+  windowMs: 2 * 60 * 1000,
+  limit: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: makeStore('rl:magic-link:'),
+  keyGenerator: (req) => (req as AuthRequest).userId ?? ipKeyGenerator(req.ip!),
+  handler: retryAfterHandler('Please wait before requesting another link'),
 });

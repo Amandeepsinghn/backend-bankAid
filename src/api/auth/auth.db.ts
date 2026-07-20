@@ -1,6 +1,6 @@
 import { db } from '../../db';
-import { profiles, refreshTokens } from '../../db/schema';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { profiles, refreshTokens, formSubmissions, letterStatus, subscriptions, otps } from '../../db/schema';
+import { and, eq, gt, inArray, isNull } from 'drizzle-orm';
 import { AppError } from '../../middleware/error/errorHandler';
 import { cacheGet, cacheSet, cacheDel } from '../../lib/redis';
 
@@ -119,4 +119,27 @@ export async function revokeAllRefreshTokensForUser(userId: string) {
     .update(refreshTokens)
     .set({ revokedAt: new Date() })
     .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
+}
+
+// Full account purge — order matters for FK constraints: letter_status before
+// form_submissions, form_submissions before subscriptions, everything before profiles.
+export async function deleteAccountCascade(userId: string, email: string) {
+  await db.transaction(async (tx) => {
+    const submissions = await tx
+      .select({ id: formSubmissions.id })
+      .from(formSubmissions)
+      .where(eq(formSubmissions.userId, userId));
+    const submissionIds = submissions.map((s) => s.id);
+
+    if (submissionIds.length > 0) {
+      await tx.delete(letterStatus).where(inArray(letterStatus.submissionId, submissionIds));
+    }
+    await tx.delete(formSubmissions).where(eq(formSubmissions.userId, userId));
+    await tx.delete(subscriptions).where(eq(subscriptions.userId, userId));
+    await tx.delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+    await tx.delete(otps).where(eq(otps.phone, email));
+    await tx.delete(profiles).where(eq(profiles.id, userId));
+  });
+
+  await cacheDel(profileCacheKey(userId));
 }
