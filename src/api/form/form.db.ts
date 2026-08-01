@@ -62,6 +62,38 @@ export async function getSubmissionById(submissionId: string, userId: string) {
   return submission;
 }
 
+export async function updateFormSubmission(
+  submissionId: string,
+  userId: string,
+  data: Partial<{
+    bankName: string;
+    branchName: string;
+    accountNumber: string;
+    remainingBalance: string;
+    freezeDate: string;
+    ncrpNo: string;
+    declaredStuckAmount: string;
+    cityState: string;
+    address: string;
+    contactNumber: string;
+    exchangeName: string;
+    orderId: string;
+    counterpartyUsername: string;
+    exchangeUid: string;
+    rbiRegionalOffice: string;
+    emailAddress: string;
+  }>,
+) {
+  // userId is part of the WHERE, so another user's submission simply matches
+  // nothing and returns undefined rather than updating a row we don't own.
+  const [updated] = await db
+    .update(formSubmissions)
+    .set({ ...data, updatedAt: new Date() })
+    .where(and(eq(formSubmissions.id, submissionId), eq(formSubmissions.userId, userId)))
+    .returning();
+  return updated;
+}
+
 export async function countCasesBySubscription(subscriptionId: string): Promise<number> {
   const [result] = await db
     .select({ total: count() })

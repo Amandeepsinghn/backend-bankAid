@@ -6,6 +6,7 @@ import {
   submitFormController,
   getSubmissionsController,
   getSubmissionByIdController,
+  updateSubmissionController,
 } from './form.routeController';
 
 const router = Router();
@@ -141,5 +142,62 @@ router.get('/submissions', verifyToken, asyncHandler(getSubmissionsController));
  *         description: Submission not found
  */
 router.get('/submissions/:id', verifyToken, asyncHandler(getSubmissionByIdController));
+
+/**
+ * @swagger
+ * /api/form/submissions/{id}:
+ *   patch:
+ *     tags: [Form]
+ *     summary: Update fields on an existing submission
+ *     description: >
+ *       Partial update used by the letter review sheet, where a user corrects a
+ *       merged value inline. Every field is optional; at least one is required.
+ *       Does not consume a case attempt or re-run tier validation.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               bankName: { type: string }
+ *               branchName: { type: string }
+ *               accountNumber: { type: string }
+ *               remainingBalance: { type: string }
+ *               freezeDate: { type: string, format: date }
+ *               ncrpNo: { type: string }
+ *               declaredStuckAmount: { type: number }
+ *               cityState: { type: string }
+ *               address: { type: string }
+ *               contactNumber: { type: string }
+ *               exchangeName: { type: string }
+ *               orderId: { type: string }
+ *               counterpartyUsername: { type: string }
+ *               exchangeUid: { type: string }
+ *               rbiRegionalOffice: { type: string }
+ *               emailAddress: { type: string, format: email }
+ *     responses:
+ *       200:
+ *         description: Updated submission
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Submission not found
+ */
+router.patch(
+  '/submissions/:id',
+  verifyToken,
+  requireSubscription,
+  asyncHandler(updateSubmissionController),
+);
 
 export default router;

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { formSubmitSchema, submissionIdParamSchema } from './form.requestHygiene';
+import {
+  formSubmitSchema,
+  formUpdateSchema,
+  submissionIdParamSchema,
+} from './form.requestHygiene';
 
 describe('Form Request Hygiene', () => {
   const validPayload = {
@@ -135,5 +139,37 @@ describe('submissionIdParamSchema', () => {
       id: 'not-a-uuid',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('Form Update Hygiene', () => {
+  it('accepts a single-field patch', () => {
+    const result = formUpdateSchema.safeParse({ bankName: 'State Bank of India' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a multi-field patch', () => {
+    const result = formUpdateSchema.safeParse({
+      bankName: 'SBI',
+      branchName: 'Andheri East',
+      declaredStuckAmount: 1000.23,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an empty patch', () => {
+    const result = formUpdateSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it('applies the same field rules as submit', () => {
+    expect(formUpdateSchema.safeParse({ emailAddress: 'not-an-email' }).success).toBe(false);
+    expect(formUpdateSchema.safeParse({ contactNumber: '9876543210' }).success).toBe(false);
+    expect(formUpdateSchema.safeParse({ declaredStuckAmount: -5 }).success).toBe(false);
+    expect(formUpdateSchema.safeParse({ freezeDate: '01-05-2026' }).success).toBe(false);
+  });
+
+  it('rejects a blank string for an edited field', () => {
+    expect(formUpdateSchema.safeParse({ bankName: '' }).success).toBe(false);
   });
 });

@@ -17,6 +17,8 @@ export interface FormSubmitInput {
   emailAddress: string;
 }
 
+export type FormUpdateInput = Partial<FormSubmitInput>;
+
 export interface FormSubmissionResponse {
   id: string;
   bankName: string | null;

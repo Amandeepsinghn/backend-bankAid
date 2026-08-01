@@ -2,7 +2,7 @@ import { AppError } from '../../middleware/error/errorHandler';
 import { validateAmountAgainstTier, TIER_CASE_LIMITS, type Tier } from '../../lib/tierValidation';
 import * as formDb from './form.db';
 import * as subscriptionDb from '../subscription/subscription.db';
-import type { FormSubmitInput } from './form.types';
+import type { FormSubmitInput, FormUpdateInput } from './form.types';
 
 // The Generate/submit action is the one true gate: it's the only place that
 // actually persists a case, so every check that decides "can this user get
@@ -66,6 +66,32 @@ export async function submitForm(userId: string, input: FormSubmitInput) {
 
 export async function getSubmissions(userId: string, limit = 20, offset = 0) {
   return formDb.getSubmissionsByUserId(userId, limit, offset);
+}
+
+// Corrections made while reviewing a letter. Deliberately narrower than
+// submitForm: it never touches subscription state or case counts, because
+// fixing a typo in an existing case must not consume a case attempt or be
+// re-validated against the tier — the amount that decided the tier was locked
+// in at submit time.
+export async function updateSubmission(
+  submissionId: string,
+  userId: string,
+  input: FormUpdateInput,
+) {
+  const { declaredStuckAmount, ...rest } = input;
+
+  const updated = await formDb.updateFormSubmission(submissionId, userId, {
+    ...rest,
+    // numeric column takes a string; only send it when it was actually edited.
+    ...(declaredStuckAmount !== undefined
+      ? { declaredStuckAmount: declaredStuckAmount.toString() }
+      : {}),
+  });
+
+  if (!updated) {
+    throw new AppError(404, 'Submission not found');
+  }
+  return updated;
 }
 
 export async function getSubmissionById(submissionId: string, userId: string) {

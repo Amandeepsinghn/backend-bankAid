@@ -36,6 +36,16 @@ export const formSubmitSchema = z.object({
   emailAddress: z.string().email('Valid email is required').max(254),
 });
 
+// Field-level edits from the letter review sheet. Same rules as submit — a
+// value corrected in a letter has to clear the same bar as one typed into the
+// form — but every field is optional and at least one must be present, so a
+// PATCH can never blank a case by omission.
+export const formUpdateSchema = formSubmitSchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
 export const submissionIdParamSchema = z.object({
   id: z.string().uuid('Invalid submission ID'),
 });
